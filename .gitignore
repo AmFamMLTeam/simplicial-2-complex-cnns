@@ -7,3 +7,7 @@
 
 log/*
 !log/.gitkeep
+
+data/project_dir/*
+data/sccnn_mnist_clfn_output/*
+data/sccnn.db

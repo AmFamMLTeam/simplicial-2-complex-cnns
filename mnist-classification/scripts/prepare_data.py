@@ -3,15 +3,19 @@ import numpy as np
 import os
 import pickle
 import scipy
+import yaml
+from scipy import sparse
+from scipy.sparse import csr_matrix
 from mnist import MNIST
-home = os.path.expanduser('~')
+from config import constants
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--project_dir', type=str)
-parser.add_argument('--kernel_size', type=int)
-parser.add_argument('--stride', type=int)
+parser.add_argument('--config_filepath', type=str)
 args = parser.parse_args()
+
+with open(args.config_filepath, 'rb') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
 
 
 def load_sc_data(
@@ -47,9 +51,18 @@ def load_sc_struct(struct_path):
     L1 = scipy.sparse.load_npz(os.path.join(struct_path, 'L1.npz'))
     L2 = scipy.sparse.load_npz(os.path.join(struct_path, 'L2.npz'))
     B2D3 = scipy.sparse.load_npz(os.path.join(struct_path, 'B2D3.npz'))
-    D2B1TD1inv = scipy.sparse.load_npz(os.path.join(struct_path, 'D2B1TD1inv.npz'))
-    D1invB1 = scipy.sparse.load_npz(os.path.join(struct_path, 'D1invB1.npz'))
-    B2TD2inv = scipy.sparse.load_npz(os.path.join(struct_path, 'B2TD2inv.npz'))
+    D2B1TD1inv = scipy.sparse.load_npz(os.path.join(
+        struct_path,
+        'D2B1TD1inv.npz',
+    ))
+    D1invB1 = scipy.sparse.load_npz(os.path.join(
+        struct_path,
+        'D1invB1.npz',
+    ))
+    B2TD2inv = scipy.sparse.load_npz(os.path.join(
+        struct_path,
+        'B2TD2inv.npz',
+    ))
 
     return {
         'B1': B1,
@@ -94,7 +107,7 @@ def make_zero_cells(
     return zero_cells
 
 
-def make_one_cells(zero_cells):
+def make_one_cells(zero_cells, stride):
     one_cells = {}
     one_cell_index = 0
     for a in zero_cells.keys():
@@ -108,7 +121,11 @@ def make_one_cells(zero_cells):
             if 'features' in zero_cells[b].keys():
                 zero_cell2_features = zero_cells[b]['features']
             if zero_cell1[0] < zero_cell2[0]:
-                if 'features' in zero_cells[a].keys() and 'features' in zero_cells[b].keys():
+                if (
+                    'features' in zero_cells[a].keys()
+                    and
+                    'features' in zero_cells[b].keys()
+                ):
                     one_cell_dict = {
                         'one_cell': (zero_cell1[0], zero_cell2[0]),
                         'features': np.concatenate(
@@ -117,7 +134,10 @@ def make_one_cells(zero_cells):
                         )
                     }
                 else:
-                    one_cell_dict = {'one_cell': (zero_cell1[0], zero_cell2[0])}
+                    one_cell_dict = {
+                        'one_cell':
+                        (zero_cell1[0], zero_cell2[0])
+                    }
                 if y1 == y2 and np.abs(x1 - x2) == stride:
                     one_cells[one_cell_index] = one_cell_dict
                     one_cell_index += 1
@@ -135,14 +155,18 @@ def make_two_cells(zero_cells):
     two_cells = {}
     two_cell_index = 0
     for a in zero_cells.keys():
-        zero_cell = zero_cells[a]['zero_cell'][0]
+        # zero_cell = zero_cells[a]['zero_cell'][0]
         nbrs = sorted(zero_cells[a]['nbrs'])
         for index, nbr1 in enumerate(nbrs):
             for nbr2 in nbrs[index+1:]:
                 if nbr2 in set(zero_cells[nbr1]['nbrs']):
-                    if ('features' in zero_cells[a].keys()
-                    and 'features' in zero_cells[nbr1].keys()
-                    and 'features' in zero_cells[nbr2].keys()):
+                    if (
+                        'features' in zero_cells[a].keys()
+                        and
+                        'features' in zero_cells[nbr1].keys()
+                        and
+                        'features' in zero_cells[nbr2].keys()
+                    ):
                         two_cells[two_cell_index] = {
                             'two_cell': (a, nbr1, nbr2),
                             'features': np.concatenate(
@@ -156,7 +180,9 @@ def make_two_cells(zero_cells):
                         }
                         two_cell_index += 1
                     else:
-                        two_cells[two_cell_index] = {'two_cell': (a, nbr1, nbr2)}
+                        two_cells[two_cell_index] = {
+                            'two_cell': (a, nbr1, nbr2)
+                        }
                         two_cell_index += 1
 
     return two_cells
@@ -165,11 +191,14 @@ def make_two_cells(zero_cells):
 def preprocess_mnist_images(
     images,
     project_dir,
-    segment, # either 'train' or 'test'
+    segment,  # either 'train' or 'test'
     kernel_size,
     stride,
 ):
-    dataset_path = os.path.join(project_dir, f'ksize_{kernel_size}_stride_{stride}')
+    dataset_path = os.path.join(
+        project_dir,
+        f'ksize_{kernel_size}_stride_{stride}',
+    )
     if not os.path.isdir(dataset_path):
         os.mkdir(dataset_path)
 
@@ -177,8 +206,7 @@ def preprocess_mnist_images(
     if not os.path.isdir(path):
         os.mkdir(path)
 
-    imgs = tqdm(images, desc='mnist')
-    for index, image in enumerate(imgs):
+    for index, image in enumerate(images):
         img_path = os.path.join(path, f'{index}')
         if not os.path.isdir(img_path):
             os.mkdir(img_path)
@@ -201,7 +229,7 @@ def preprocess_mnist_images(
             pickle.dump(zero_cells, f)
 
         n_zero_cells_in_row = int(np.floor((28 - kernel_size)/stride) + 1)
-        n_zero_cells = n_zero_cells_in_row**2
+        # n_zero_cells = n_zero_cells_in_row**2
         n_one_cells = 2*(2*n_zero_cells_in_row - 1)*(n_zero_cells_in_row - 1)
         n_two_cells = 4*(n_zero_cells_in_row - 1)*(n_zero_cells_in_row - 1)
 
@@ -228,14 +256,16 @@ def form_sc_structure(
     kernel_size,
     stride,
 ):
-    dataset_path = os.path.join(project_dir, f'ksize_{kernel_size}_stride_{stride}')
+    dataset_path = os.path.join(
+        project_dir,
+        f'ksize_{kernel_size}_stride_{stride}',
+    )
     if not os.path.isdir(dataset_path):
         os.mkdir(dataset_path)
 
     sc_struct_path = os.path.join(dataset_path, 'sc_struct')
     if not os.path.isdir(sc_struct_path):
         os.mkdir(sc_struct_path)
-
 
     # make zero cells
     zero_cells = make_zero_cells(kernel_size, stride)
@@ -256,142 +286,203 @@ def form_sc_structure(
     n_one_cells = 2*(2*n_zero_cells_in_row - 1)*(n_zero_cells_in_row - 1)
     n_two_cells = 4*(n_zero_cells_in_row - 1)*(n_zero_cells_in_row - 1)
 
-    B1 = np.zeros(shape=(n_zero_cells, n_one_cells), dtype='float')
-    B2 = np.zeros(shape=(n_one_cells, n_two_cells), dtype='float')
+    one_cell_index_lookup = {
+        value['one_cell']: key
+        for key, value
+        in one_cells.items()
+    }
+
+    # make B1
+    col_index = []
+    row_index = []
+    data = []
 
     for key, value in one_cells.items():
-        one_cell = value['one_cell']
-        B1[:,key][int(one_cell[0])] = 1
-        B1[:,key][int(one_cell[1])] = -1
+        (x, y) = value['one_cell']
+        x, y = int(x), int(y)
+        col_index.append(key)
+        row_index.append(x)
+        data.append(1)
+
+        col_index.append(key)
+        row_index.append(y)
+        data.append(-1)
+
+    B1 = csr_matrix(
+        (
+            data,
+            (row_index, col_index)
+        ),
+        shape=(n_zero_cells, n_one_cells),
+        dtype=float,
+    )
+
+    # make B2
+    col_index = []
+    row_index = []
+    data = []
 
     for key, value in two_cells.items():
-        two_cell = value['two_cell']
-        B2[:,key][int(two_cell[0])] = 1
-        B2[:,key][int(two_cell[1])] = -1
-        B2[:,key][int(two_cell[2])] = 1
+        (x, y, z) = value['two_cell']
+        x, y, z = int(x), int(y), int(z)
+        col_index.append(key)
+        row_index.append(one_cell_index_lookup[(y, z)])
+        data.append(1)
+
+        col_index.append(key)
+        row_index.append(one_cell_index_lookup[(x, z)])
+        data.append(-1)
+
+        col_index.append(key)
+        row_index.append(one_cell_index_lookup[(x, y)])
+        data.append(1)
+
+    B2 = csr_matrix(
+        (
+            data,
+            (row_index, col_index)
+        ),
+        shape=(n_one_cells, n_two_cells),
+        dtype=float,
+    )
 
     L0 = B1@B1.T
     B1_sum = np.abs(B1).sum(axis=1)
-    D0 = np.diag(B1_sum)
+    D0 = sparse.diags(B1_sum.A.reshape(-1), 0)
     B1_sum_inv = 1./B1_sum
     B1_sum_inv[np.isinf(B1_sum_inv) | np.isneginf(B1_sum_inv)] = 0
-    D0_inv = np.diag(B1_sum_inv)
-    # noramlize L0
+    D0_inv = sparse.diags(B1_sum_inv.A.reshape(-1), 0)
     L0 = D0_inv@L0
-    # equivalent of \tilde{D}^{-1}\tilde{A}
-    L0factor = (-1.)*np.linalg.inv(D0_inv + np.identity(n=D0_inv.shape[0]))
-    L0bias = np.identity(n=D0.shape[0])
+    L0factor = (-1)*sparse.diags((1/(B1_sum_inv + 1)).A.reshape(-1), 0)
+    L0bias = sparse.identity(n=D0.shape[0])
     L0 = L0factor@L0 + L0bias
 
-    D1_inv = np.diag(B1_sum_inv*0.5)
-    D2 = np.max((np.diag(np.abs(B2).sum(axis=1)), np.identity(n=len(one_cells))), axis=0)
+    D1_inv = sparse.diags((B1_sum_inv*0.5).A.reshape(-1), 0)
+    D2diag = np.max(
+        (
+            abs(B2).sum(axis=1).A.reshape(-1),
+            np.ones(shape=(n_one_cells))
+        ),
+        axis=0
+    )
+    D2 = sparse.diags(D2diag, 0)
+    D2inv = sparse.diags(1/D2diag, 0)
+    D3 = (1/3.)*sparse.identity(n=B2.shape[1])
 
-#     normalize L1
-    D2inv = np.linalg.inv(D2)
-    L1 = D2@B1.T@D1_inv@B1 + (1/3.)*B2@B2.T@D2inv
-    L1factor = (-1/2.)*np.identity(n=B1.shape[1])
-    L1bias = np.identity(n=B1.shape[1])
-    L1 = L1factor@(L1) + L1bias
+    A_1u = D2 - B2@D3@B2.T
+    A_1d = D2inv - B1.T@D1_inv@B1
+    A_1u_norm = (
+        A_1u
+        +
+        sparse.identity(n=A_1u.shape[0])
+    )@sparse.diags(1/(D2.diagonal() + 1), 0)
+    A_1d_norm = (
+        D2
+        +
+        sparse.identity(n=D2.shape[0])
+    )@(A_1d + sparse.identity(n=A_1d.shape[0]))
+    # not really L1, but easy to drop in; normalized adjacency
+    L1 = A_1u_norm + A_1d_norm
 
+    B2_sum = abs(B2).sum(axis=1)
+    B2_sum_inv = 1/(B2_sum + 1)
+    D5inv = sparse.diags(B2_sum_inv, 0)
+
+    A_2d = sparse.identity(n=B2.shape[1]) + B2.T@D5inv@B2
+    A_2d_norm = (2*sparse.identity(n=B2.shape[1]))@(
+        A_2d
+        +
+        sparse.identity(n=A_2d.shape[0])
+    )
+    L2 = A_2d_norm  # normalized adjacency
+
+    B2D3 = B2@D3
     D2B1TD1inv = (1/np.sqrt(2.))*D2@B1.T@D1_inv
-    B2D3 = (1/3.)*B2
-    L2 = (1/3.)*B2.T@D2inv@B2 # same as L2 in this case
     D1invB1 = (1/np.sqrt(2.))*D1_inv@B1
-    B2TD2inv = B2.T@D2inv
-
+    B2TD2inv = B2.T@D5inv
 
     B1_path = os.path.join(sc_struct_path, 'B1')
-    B1_csr = scipy.sparse.csr_matrix(B1)
     scipy.sparse.save_npz(
         file=B1_path,
-        matrix=B1_csr,
+        matrix=B1,
     )
 
     B2_path = os.path.join(sc_struct_path, 'B2')
-    B2_csr = scipy.sparse.csr_matrix(B2)
     scipy.sparse.save_npz(
         file=B2_path,
-        matrix=B2_csr,
+        matrix=B2,
     )
 
     L0_path = os.path.join(sc_struct_path, 'L0')
-    L0_csr = scipy.sparse.csr_matrix(L0)
     scipy.sparse.save_npz(
         file=L0_path,
-        matrix=L0_csr,
+        matrix=L0,
     )
 
     L1_path = os.path.join(sc_struct_path, 'L1')
-    L1_csr = scipy.sparse.csr_matrix(L1)
     scipy.sparse.save_npz(
         file=L1_path,
-        matrix=L1_csr,
+        matrix=L1,
     )
 
     L2_path = os.path.join(sc_struct_path, 'L2')
-    L2_csr = scipy.sparse.csr_matrix(L2)
     scipy.sparse.save_npz(
         file=L2_path,
-        matrix=L2_csr,
+        matrix=L2,
     )
 
     B2D3_path = os.path.join(sc_struct_path, 'B2D3')
-    B2D3_csr = scipy.sparse.csr_matrix(B2D3)
     scipy.sparse.save_npz(
         file=B2D3_path,
-        matrix=B2D3_csr,
+        matrix=B2D3,
     )
 
     D2B1TD1inv_path = os.path.join(sc_struct_path, 'D2B1TD1inv')
-    D2B1TD1inv_csr = scipy.sparse.csr_matrix(D2B1TD1inv)
     scipy.sparse.save_npz(
         file=D2B1TD1inv_path,
-        matrix=D2B1TD1inv_csr,
+        matrix=D2B1TD1inv,
     )
 
     D1invB1_path = os.path.join(sc_struct_path, 'D1invB1')
-    D1invB1_csr = scipy.sparse.csr_matrix(D1invB1)
     scipy.sparse.save_npz(
         file=D1invB1_path,
-        matrix=D1invB1_csr,
+        matrix=D1invB1,
     )
 
     B2TD2inv_path = os.path.join(sc_struct_path, 'B2TD2inv')
-    B2TD2inv_csr = scipy.sparse.csr_matrix(B2TD2inv)
     scipy.sparse.save_npz(
         file=B2TD2inv_path,
-        matrix=B2TD2inv_csr,
+        matrix=B2TD2inv,
     )
 
 
 if __name__ == '__main__':
-    mnist_path = os.path.join(home, 'mnist')
+    mnist_path = os.path.join(constants.home, 'mnist')
     mndata = MNIST(mnist_path)
-    project_dir = os.path.join(home, 'mount', args.project_dir)
 
-    if not os.path.isdir(project_dir):
-        os.mkdir(project_dir)
+    if not os.path.isdir(config.project_dir):
+        os.mkdir(config.project_dir)
 
     images, labels = mndata.load_training()
     preprocess_mnist_images(
         images=images,
-        project_dir=args.project_dir,
+        project_dir=config.project_dir,
         segment='train',
-        kernel_size=args.kernel_size,
-        stride=args.stride,
+        kernel_size=config.kernel_size,
+        stride=config.stride,
     )
 
     images, labels = mndata.load_testing()
     preprocess_mnist_images(
         images=images,
-        project_dir=args.project_dir,
+        project_dir=config.project_dir,
         segment='test',
-        kernel_size=args.kernel_size,
-        stride=args.stride,
+        kernel_size=config.kernel_size,
+        stride=config.stride,
     )
 
     form_sc_structure(
-        project_dir=args.project_dir,
-        kernel_size=args.kernel_size,
-        stride=args.stride,
+        project_dir=config.project_dir,
+        kernel_size=config.kernel_size,
+        stride=config.stride,
     )

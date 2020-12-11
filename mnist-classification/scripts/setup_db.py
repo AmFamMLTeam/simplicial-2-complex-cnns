@@ -1,20 +1,20 @@
 import argparse
 import os
-import sys
+import yaml
 from utils import connect_to_db
 
 
-home = os.path.expanduser('~')
-sys.path.append(os.path.join(home, 'sccnn-mnist-clfn'))
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--db_path', help='path to database', type=str)
+parser.add_argument('--config_filepath', type=str)
 args = parser.parse_args()
 
-if not os.path.exists(args.db_path):
-    os.mknod(args.db_path)
+with open(args.config_filepath, 'rb') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
 
-con = connect_to_db(args.db_path)
+if not os.path.exists(config.db_path):
+    os.mknod(config.db_path)
+
+con = connect_to_db(config.db_path)
 cur = con.cursor()
 
 query = '''

@@ -1,4 +1,7 @@
 ---
+    project_dir: data/project_dir/
+    output_dir_path: sccnn_mnist_clfn_output/
+    db_path: data/metadata.db
     one_cell_features: false
     two_cell_features: false
     kernel_size: 4

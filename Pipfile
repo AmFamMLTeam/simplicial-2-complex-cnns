@@ -4,6 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+numpy = "*"
+pyyaml = "*"
+scikit-learn = "*"
+torch = "*"
+python-mnist = "*"
+scipy = "*"
 
 [dev-packages]
 flake8 = "*"

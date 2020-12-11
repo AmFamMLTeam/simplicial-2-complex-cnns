@@ -7,14 +7,9 @@ from scipy.sparse import coo_matrix
 import torch
 from itertools import chain, zip_longest
 import random
-home = os.path.expanduser('~')
 
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    print("Running on the GPU")
-else:
-    device = torch.device("cpu")
-    print("Running on the CPU")
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def connect_to_db(path):
@@ -236,14 +231,6 @@ def extract_sc_batch_info(
     B2TD2inv = scipy_csr_to_torch_coo(B2TD2inv).to(device)
     B2D3 = scipy_csr_to_torch_coo(B2D3).to(device)
 
-    # L0 = torch.tensor(L0.todense()).float().to(device)
-    # L1 = torch.tensor(L1.todense()).float().to(device)
-    # L2 = torch.tensor(L2.todense()).float().to(device)
-    # D1invB1 = torch.tensor(D1invB1.todense()).float().to(device)
-    # D2B1TD1inv = torch.tensor(D2B1TD1inv.todense()).float().to(device)
-    # B2TD2inv = torch.tensor(B2TD2inv.todense()).float().to(device)
-    # B2D3 = torch.tensor(B2D3.todense()).float().to(device)
-
     return {
         'X0': X0,
         'X1': X1,
@@ -285,11 +272,11 @@ def augment_config(config):
         4*(n_zero_cells_in_row - 1)*(n_zero_cells_in_row - 1)
     )
 
-    config['project_dir'] = (
-        f'mnist_sccnn_ocf_'
-        f'{config["one_cell_features"]}_tcf_'
-        f'{config["two_cell_features"]}'
-    )
+    # config['project_dir'] = (
+    #     f'mnist_sccnn_ocf_'
+    #     f'{config["one_cell_features"]}_tcf_'
+    #     f'{config["two_cell_features"]}'
+    # )
 
     config['network']['num_node_feats'] = int(config['kernel_size']**2)
 
