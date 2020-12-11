@@ -1,3 +1,9 @@
 .vscode/*
 
 .venv/*
+
+.out/*
+!.out/.gitkeep
+
+log/*
+!log/.gitkeep

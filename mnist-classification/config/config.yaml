@@ -1,0 +1,56 @@
+---
+    one_cell_features: false
+    two_cell_features: false
+    kernel_size: 4
+    stride: 4
+    epochs: 300
+    learning_rate: 0.0001
+    n_train: 1000
+    n_samples: 1000
+    n_test: 1000
+    batch_size: 128
+    conv_type: sc_conv
+    network:
+      conv1:
+        output_node_dim: 32
+        output_edge_dim: 32
+        output_triangle_dim: 32
+        bias: false
+        p: 1
+      conv2:
+        output_node_dim: 32
+        output_edge_dim: 32
+        output_triangle_dim: 32
+        bias: false
+        p: 1
+      conv3:
+        output_node_dim: 32
+        output_edge_dim: 32
+        output_triangle_dim: 32
+        bias: false
+        p: 1
+      orig_features: true
+      k_nodes: 500
+      k_edges: 500
+      k_triangles: 500
+      conv1d_nodes_1:
+        out_channels: 16
+        padding: 0
+        dilation: 1
+      conv1d_edges_1:
+        out_channels: 16
+        padding: 0
+        dilation: 1
+      conv1d_triangles_1:
+        out_channels: 16
+        padding: 0
+        dilation: 1
+      mlp_out_conv1d:
+        h_size: 32
+        out_size: 10
+        h_dropouts:
+        - 0.1
+        - 0.1
+        h_bias: true
+        out_bias: true
+    
